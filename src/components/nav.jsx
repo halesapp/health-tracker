@@ -1,9 +1,9 @@
 const tabs = [
-  { id: 'dashboard', label: 'Home', icon: '\u25A2' },
+  { id: 'dashboard', label: 'Home', icon: '\u2302' },
   { id: 'weight', label: 'Weight', icon: '\u2696' },
   { id: 'exercise', label: 'Exercise', icon: '\u269B' },
   { id: 'medication', label: 'Meds', icon: '+' },
-  { id: 'vitals', label: 'Vitals', icon: '\u2665' },
+  { id: 'sleep', label: 'Sleep', icon: '\u2665' },
   { id: 'settings', label: 'Settings', icon: '\u2699' },
 ]
 

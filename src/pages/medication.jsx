@@ -13,8 +13,8 @@ export default function Medication() {
   useEffect(() => {
     async function load() {
       const [medsRes, logRes] = await Promise.all([
-        supabase.from('medications').select('*, medication_types(name)').order('drug_name'),
-        supabase.from('medicine_log').select('*, medications(drug_name, dose, dose_unit)').order('recorded_at', { ascending: false }),
+        supabase.from('medications').select('*, medication_types(name), medication_ingredients(active_ingredients(ingredient_name, dose, dose_unit))').order('brand_name'),
+        supabase.from('medicine_log').select('*, medications(brand_name, medication_ingredients(active_ingredients(ingredient_name, dose, dose_unit)))').order('recorded_at', { ascending: false }),
       ])
       setMeds(medsRes.data || [])
       setLogs(logRes.data || [])
@@ -27,10 +27,12 @@ export default function Medication() {
     setBusy(true)
     const { data, error } = await supabase.from('medicine_log')
       .insert({ recorded_at: dt, medication_id: parseInt(medId), quantity: parseFloat(qty) })
-      .select('*, medications(drug_name, dose, dose_unit)').single()
+      .select('*, medications(brand_name, medication_ingredients(active_ingredients(ingredient_name, dose, dose_unit)))').single()
     setBusy(false)
     if (error) return showToast(error.message, 'error')
     showToast('Medication logged')
+    setDt(toLocalDatetimeValue())
+    setMedId('')
     setQty('1')
     setLogs([data, ...logs])
   }
@@ -61,7 +63,10 @@ export default function Medication() {
               <label>Medication</label>
               <select value={medId} onChange={e => setMedId(e.target.value)} required>
                 <option value="">Select...</option>
-                {meds.map(m => <option key={m.id} value={m.id}>{m.drug_name} ({m.dose}{m.dose_unit})</option>)}
+                {meds.map(m => {
+                  const ingredients = (m.medication_ingredients || []).map(i => i.active_ingredients).filter(Boolean).map(a => `${a.ingredient_name} ${a.dose}${a.dose_unit}`).join(' + ')
+                  return <option key={m.id} value={m.id}>{m.brand_name}{ingredients ? ` (${ingredients})` : ''}</option>
+                })}
               </select>
             </div>
           </div>
@@ -82,11 +87,12 @@ export default function Medication() {
             <thead><tr><th>Date</th><th>Med</th><th>Qty</th><th>Total Dose</th><th></th></tr></thead>
             <tbody>
               {logs.map(l => {
-                const totalDose = l.medications ? `${l.quantity * l.medications.dose}${l.medications.dose_unit}` : ''
+                const ings = (l.medications?.medication_ingredients || []).map(i => i.active_ingredients).filter(Boolean)
+                const totalDose = ings.map(a => `${l.quantity * a.dose}${a.dose_unit} ${a.ingredient_name}`).join(' + ')
                 return (
                   <tr key={l.id}>
                     <td>{formatDateTime(l.recorded_at)}</td>
-                    <td>{l.medications?.drug_name || '?'}</td>
+                    <td>{l.medications?.brand_name || '?'}</td>
                     <td>{l.quantity}</td>
                     <td>{totalDose}</td>
                     <td class="td-actions">

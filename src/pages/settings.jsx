@@ -3,44 +3,54 @@ import { supabase } from '../lib/supabase.js'
 import { showToast, clearCachedHeight } from '../lib/utils.js'
 
 export default function Settings() {
-  const [section, setSection] = useState('medications')
+  const [section, setSection] = useState('ingredients')
+  const [ingredients, setIngredients] = useState([])
   const [meds, setMeds] = useState([])
   const [medTypes, setMedTypes] = useState([])
   const [exerciseTypes, setExerciseTypes] = useState([])
   const [heightFt, setHeightFt] = useState('5')
   const [heightIn, setHeightIn] = useState('5')
 
-  // Add-form state
-  const [newMedName, setNewMedName] = useState('')
-  const [newMedDose, setNewMedDose] = useState('')
-  const [newMedUnit, setNewMedUnit] = useState('mg')
+  // Ingredient add/edit state
+  const [newIngName, setNewIngName] = useState('')
+  const [newIngDose, setNewIngDose] = useState('')
+  const [newIngUnit, setNewIngUnit] = useState('mg')
+  const [editingIng, setEditingIng] = useState(null)
+  const [editIngName, setEditIngName] = useState('')
+  const [editIngDose, setEditIngDose] = useState('')
+  const [editIngUnit, setEditIngUnit] = useState('')
+
+  // Medication add/edit state
+  const [newBrandName, setNewBrandName] = useState('')
   const [newMedType, setNewMedType] = useState('')
-  const [newMedTypeName, setNewMedTypeName] = useState('')
-  const [newExName, setNewExName] = useState('')
-  const [newExUnit, setNewExUnit] = useState('reps')
-
-  // Inline edit state
+  const [newIngIds, setNewIngIds] = useState([''])
   const [editingMed, setEditingMed] = useState(null)
-  const [editMedName, setEditMedName] = useState('')
-  const [editMedDose, setEditMedDose] = useState('')
-  const [editMedUnit, setEditMedUnit] = useState('')
+  const [editBrandName, setEditBrandName] = useState('')
   const [editMedType, setEditMedType] = useState('')
+  const [editIngIds, setEditIngIds] = useState([''])
 
+  // Medication type state
+  const [newMedTypeName, setNewMedTypeName] = useState('')
   const [editingMedType, setEditingMedType] = useState(null)
   const [editMedTypeName, setEditMedTypeName] = useState('')
 
+  // Exercise type state
+  const [newExName, setNewExName] = useState('')
+  const [newExUnit, setNewExUnit] = useState('reps')
   const [editingEx, setEditingEx] = useState(null)
   const [editExName, setEditExName] = useState('')
   const [editExUnit, setEditExUnit] = useState('')
 
   useEffect(() => {
     async function load() {
-      const [medsRes, mtRes, etRes, profRes] = await Promise.all([
-        supabase.from('medications').select('*, medication_types(name)').order('drug_name'),
+      const [ingRes, medsRes, mtRes, etRes, profRes] = await Promise.all([
+        supabase.from('active_ingredients').select('*').order('ingredient_name'),
+        supabase.from('medications').select('*, medication_types(name), medication_ingredients(ingredient_id)').order('brand_name'),
         supabase.from('medication_types').select('*').order('name'),
         supabase.from('exercise_types').select('*').order('name'),
         supabase.from('user_profile').select('*').limit(1).maybeSingle(),
       ])
+      setIngredients(ingRes.data || [])
       setMeds(medsRes.data || [])
       setMedTypes(mtRes.data || [])
       setExerciseTypes(etRes.data || [])
@@ -53,32 +63,89 @@ export default function Settings() {
     load()
   }, [])
 
+  function ingredientLabel(i) {
+    return `${i.ingredient_name} ${i.dose}${i.dose_unit}`
+  }
+
+  // --- Active Ingredients ---
+  async function addIngredient(e) {
+    e.preventDefault()
+    const { data, error } = await supabase.from('active_ingredients').insert({
+      ingredient_name: newIngName.trim(), dose: parseFloat(newIngDose), dose_unit: newIngUnit,
+    }).select().single()
+    if (error) return showToast(error.message, 'error')
+    setIngredients([...ingredients, data].sort((a, b) => a.ingredient_name.localeCompare(b.ingredient_name)))
+    setNewIngName('')
+    setNewIngDose('')
+    showToast('Ingredient added')
+  }
+
+  function startIngEdit(i) {
+    setEditingIng(i.id)
+    setEditIngName(i.ingredient_name)
+    setEditIngDose(String(i.dose))
+    setEditIngUnit(i.dose_unit)
+  }
+
+  async function saveIngEdit(id) {
+    const { data, error } = await supabase.from('active_ingredients').update({
+      ingredient_name: editIngName.trim(), dose: parseFloat(editIngDose), dose_unit: editIngUnit,
+    }).eq('id', id).select().single()
+    if (error) return showToast(error.message, 'error')
+    setIngredients(ingredients.map(i => i.id === id ? data : i))
+    setEditingIng(null)
+    showToast('Updated')
+  }
+
+  async function deleteIngredient(id) {
+    if (!confirm('Delete this ingredient? It will be removed from any medications using it.')) return
+    const { error } = await supabase.from('active_ingredients').delete().eq('id', id)
+    if (error) return showToast(error.message, 'error')
+    setIngredients(ingredients.filter(i => i.id !== id))
+    showToast('Deleted')
+  }
+
   // --- Medications ---
   async function addMed(e) {
     e.preventDefault()
-    const row = { drug_name: newMedName.trim(), dose: parseFloat(newMedDose), dose_unit: newMedUnit }
-    if (newMedType) row.medication_type_id = parseInt(newMedType)
-    const { data, error } = await supabase.from('medications').insert(row).select('*, medication_types(name)').single()
+    const selectedIds = newIngIds.filter(id => id)
+    if (selectedIds.length === 0) return showToast('Select at least one ingredient', 'error')
+    const row = { brand_name: newBrandName.trim() }
+    if (newMedType) row.type_id = parseInt(newMedType)
+    const { data: med, error } = await supabase.from('medications').insert(row).select('*, medication_types(name)').single()
     if (error) return showToast(error.message, 'error')
-    setMeds([...meds, data].sort((a, b) => a.drug_name.localeCompare(b.drug_name)))
-    setNewMedName('')
-    setNewMedDose('')
+    const links = selectedIds.map(ingredient_id => ({ medication_id: med.id, ingredient_id: parseInt(ingredient_id) }))
+    const { error: linkErr } = await supabase.from('medication_ingredients').insert(links)
+    if (linkErr) return showToast(linkErr.message, 'error')
+    med.medication_ingredients = links.map(l => ({ ingredient_id: l.ingredient_id }))
+    setMeds([...meds, med].sort((a, b) => a.brand_name.localeCompare(b.brand_name)))
+    setNewBrandName('')
+    setNewMedType('')
+    setNewIngIds([''])
     showToast('Medication added')
   }
 
   function startMedEdit(m) {
     setEditingMed(m.id)
-    setEditMedName(m.drug_name)
-    setEditMedDose(String(m.dose))
-    setEditMedUnit(m.dose_unit)
-    setEditMedType(m.medication_type_id ? String(m.medication_type_id) : '')
+    setEditBrandName(m.brand_name)
+    setEditMedType(m.type_id ? String(m.type_id) : '')
+    const ids = (m.medication_ingredients || []).map(i => String(i.ingredient_id))
+    setEditIngIds(ids.length ? ids : [''])
   }
 
   async function saveMedEdit(id) {
-    const row = { drug_name: editMedName.trim(), dose: parseFloat(editMedDose), dose_unit: editMedUnit, medication_type_id: editMedType ? parseInt(editMedType) : null }
-    const { data, error } = await supabase.from('medications').update(row).eq('id', id).select('*, medication_types(name)').single()
+    const selectedIds = editIngIds.filter(id => id)
+    if (selectedIds.length === 0) return showToast('Select at least one ingredient', 'error')
+    const { error } = await supabase.from('medications').update({
+      brand_name: editBrandName.trim(), type_id: editMedType ? parseInt(editMedType) : null,
+    }).eq('id', id)
     if (error) return showToast(error.message, 'error')
-    setMeds(meds.map(m => m.id === id ? data : m))
+    await supabase.from('medication_ingredients').delete().eq('medication_id', id)
+    const links = selectedIds.map(ingredient_id => ({ medication_id: id, ingredient_id: parseInt(ingredient_id) }))
+    const { error: linkErr } = await supabase.from('medication_ingredients').insert(links)
+    if (linkErr) return showToast(linkErr.message, 'error')
+    const { data: updated } = await supabase.from('medications').select('*, medication_types(name), medication_ingredients(ingredient_id)').eq('id', id).single()
+    setMeds(meds.map(m => m.id === id ? updated : m))
     setEditingMed(null)
     showToast('Updated')
   }
@@ -89,6 +156,33 @@ export default function Settings() {
     if (error) return showToast(error.message, 'error')
     setMeds(meds.filter(m => m.id !== id))
     showToast('Deleted')
+  }
+
+  function ingredientNamesForMed(m) {
+    const ids = (m.medication_ingredients || []).map(i => i.ingredient_id)
+    return ingredients.filter(i => ids.includes(i.id)).map(ingredientLabel).join(', ')
+  }
+
+  function IngredientSelectRows({ ids, setIds }) {
+    if (ingredients.length === 0) return <p class="empty">No ingredients configured. Add ingredients first.</p>
+    return (
+      <>
+        {ids.map((selectedId, idx) => (
+          <div class="form-row" key={idx}>
+            <div class="field" style="flex:1">
+              <select value={selectedId} onChange={e => setIds(ids.map((v, i) => i === idx ? e.target.value : v))}>
+                <option value="">Select ingredient...</option>
+                {ingredients.map(i => <option key={i.id} value={i.id}>{ingredientLabel(i)}</option>)}
+              </select>
+            </div>
+            {ids.length > 1 && (
+              <button type="button" class="btn-icon" title="Remove" onClick={() => setIds(ids.filter((_, i) => i !== idx))}>{'\u2716'}</button>
+            )}
+          </div>
+        ))}
+        <button type="button" class="btn btn-secondary" style="align-self:flex-start;margin-top:4px" onClick={() => setIds([...ids, ''])}>+ Add Ingredient</button>
+      </>
+    )
   }
 
   // --- Medication Types ---
@@ -169,11 +263,78 @@ export default function Settings() {
       <div class="page-header"><h1>Settings</h1></div>
 
       <div class="section-toggle">
+        <button class={section === 'ingredients' ? 'active' : ''} onClick={() => setSection('ingredients')}>Ingredients</button>
         <button class={section === 'medications' ? 'active' : ''} onClick={() => setSection('medications')}>Meds</button>
         <button class={section === 'medtypes' ? 'active' : ''} onClick={() => setSection('medtypes')}>Med Types</button>
         <button class={section === 'exercises' ? 'active' : ''} onClick={() => setSection('exercises')}>Exercises</button>
         <button class={section === 'profile' ? 'active' : ''} onClick={() => setSection('profile')}>Profile</button>
       </div>
+
+      {section === 'ingredients' && (
+        <div class="card">
+          <h2>Active Ingredients</h2>
+          <form onSubmit={addIngredient} class="form-stack">
+            <div class="form-row">
+              <div class="field" style="flex:2">
+                <label>Name</label>
+                <input type="text" value={newIngName} onInput={e => setNewIngName(e.target.value)} placeholder="ibuprofen" required />
+              </div>
+              <div class="field" style="flex:1">
+                <label>Dose</label>
+                <input type="number" inputmode="decimal" step="any" value={newIngDose} onInput={e => setNewIngDose(e.target.value)} placeholder="200" required />
+              </div>
+              <div class="field" style="flex:1">
+                <label>Unit</label>
+                <select value={newIngUnit} onChange={e => setNewIngUnit(e.target.value)}>
+                  <option value="mg">mg</option>
+                  <option value="mcg">mcg</option>
+                  <option value="g">g</option>
+                  <option value="ml">ml</option>
+                  <option value="IU">IU</option>
+                </select>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Add Ingredient</button>
+          </form>
+
+          <div class="table-scroll" style="margin-top:16px">
+            <table>
+              <thead><tr><th>Name</th><th>Dose</th><th></th></tr></thead>
+              <tbody>
+                {ingredients.map(i => editingIng === i.id ? (
+                  <tr key={i.id}>
+                    <td><input type="text" value={editIngName} onInput={e => setEditIngName(e.target.value)} /></td>
+                    <td>
+                      <input type="number" inputmode="decimal" step="any" value={editIngDose} onInput={e => setEditIngDose(e.target.value)} style="width:60px;display:inline" />
+                      <select value={editIngUnit} onChange={e => setEditIngUnit(e.target.value)} style="width:60px;display:inline;margin-left:4px">
+                        <option value="mg">mg</option>
+                        <option value="mcg">mcg</option>
+                        <option value="g">g</option>
+                        <option value="ml">ml</option>
+                        <option value="IU">IU</option>
+                      </select>
+                    </td>
+                    <td class="td-actions">
+                      <button class="btn-icon" title="Save" onClick={() => saveIngEdit(i.id)}>{'\u2714'}</button>
+                      <button class="btn-icon" title="Cancel" onClick={() => setEditingIng(null)}>{'\u2716'}</button>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={i.id}>
+                    <td>{i.ingredient_name}</td>
+                    <td>{i.dose}{i.dose_unit}</td>
+                    <td class="td-actions">
+                      <button class="btn-icon" title="Edit" onClick={() => startIngEdit(i)}>{'\u270E'}</button>
+                      <button class="btn-icon" title="Delete" onClick={() => deleteIngredient(i.id)}>{'\uD83D\uDDD1'}</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {ingredients.length === 0 && <p class="empty">No ingredients configured</p>}
+        </div>
+      )}
 
       {section === 'medications' && (
         <div class="card">
@@ -181,24 +342,8 @@ export default function Settings() {
           <form onSubmit={addMed} class="form-stack">
             <div class="form-row">
               <div class="field field-half">
-                <label>Drug Name</label>
-                <input type="text" value={newMedName} onInput={e => setNewMedName(e.target.value)} placeholder="Aspirin" required />
-              </div>
-              <div class="field field-half">
-                <label>Dose</label>
-                <input type="number" inputmode="decimal" step="any" value={newMedDose} onInput={e => setNewMedDose(e.target.value)} placeholder="100" required />
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="field field-half">
-                <label>Unit</label>
-                <select value={newMedUnit} onChange={e => setNewMedUnit(e.target.value)}>
-                  <option value="mg">mg</option>
-                  <option value="mcg">mcg</option>
-                  <option value="g">g</option>
-                  <option value="ml">ml</option>
-                  <option value="IU">IU</option>
-                </select>
+                <label>Brand Name</label>
+                <input type="text" value={newBrandName} onInput={e => setNewBrandName(e.target.value)} placeholder="Advil" required />
               </div>
               <div class="field field-half">
                 <label>Type (optional)</label>
@@ -208,25 +353,20 @@ export default function Settings() {
                 </select>
               </div>
             </div>
+            <label style="margin-top:8px;font-weight:600">Active Ingredients</label>
+            <IngredientSelectRows ids={newIngIds} setIds={setNewIngIds} />
             <button type="submit" class="btn btn-primary btn-block">Add Medication</button>
           </form>
 
           <div class="table-scroll" style="margin-top:16px">
             <table>
-              <thead><tr><th>Name</th><th>Dose</th><th>Type</th><th></th></tr></thead>
+              <thead><tr><th>Brand</th><th>Ingredients</th><th>Type</th><th></th></tr></thead>
               <tbody>
                 {meds.map(m => editingMed === m.id ? (
                   <tr key={m.id}>
-                    <td><input type="text" value={editMedName} onInput={e => setEditMedName(e.target.value)} /></td>
+                    <td><input type="text" value={editBrandName} onInput={e => setEditBrandName(e.target.value)} /></td>
                     <td>
-                      <input type="number" inputmode="decimal" step="any" value={editMedDose} onInput={e => setEditMedDose(e.target.value)} style="width:60px;display:inline" />
-                      <select value={editMedUnit} onChange={e => setEditMedUnit(e.target.value)} style="width:60px;display:inline;margin-left:4px">
-                        <option value="mg">mg</option>
-                        <option value="mcg">mcg</option>
-                        <option value="g">g</option>
-                        <option value="ml">ml</option>
-                        <option value="IU">IU</option>
-                      </select>
+                      <IngredientSelectRows ids={editIngIds} setIds={setEditIngIds} />
                     </td>
                     <td>
                       <select value={editMedType} onChange={e => setEditMedType(e.target.value)}>
@@ -241,8 +381,8 @@ export default function Settings() {
                   </tr>
                 ) : (
                   <tr key={m.id}>
-                    <td>{m.drug_name}</td>
-                    <td>{m.dose}{m.dose_unit}</td>
+                    <td>{m.brand_name}</td>
+                    <td>{ingredientNamesForMed(m)}</td>
                     <td>{m.medication_types?.name || '--'}</td>
                     <td class="td-actions">
                       <button class="btn-icon" title="Edit" onClick={() => startMedEdit(m)}>{'\u270E'}</button>

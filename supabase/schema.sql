@@ -16,7 +16,7 @@ create table medication_types (
 
 insert into medication_types (name) values ('capsule'), ('tablet'), ('inhaler');
 
--- Exercise types lookup (per-user)
+-- Exercise types lookup (shared)
 create table exercise_types (
   id bigint generated always as identity primary key,
   name text not null,
@@ -26,16 +26,32 @@ create table exercise_types (
   unique(name, user_id)
 );
 
--- Medications catalog (per-user)
-create table medications (
+-- Active ingredients catalog (shared, controlled list)
+create table active_ingredients (
   id bigint generated always as identity primary key,
-  drug_name text not null,
-  brand_name text,
-  type_id bigint references medication_types(id),
+  ingredient_name text not null,
   dose numeric not null,
   dose_unit text not null default 'mg',
   user_id uuid references auth.users(id) default auth.uid(),
+  created_at timestamptz default now(),
+  unique(ingredient_name, dose, dose_unit, user_id)
+);
+
+-- Medications catalog (shared)
+create table medications (
+  id bigint generated always as identity primary key,
+  brand_name text not null,
+  type_id bigint references medication_types(id),
+  user_id uuid references auth.users(id) default auth.uid(),
   created_at timestamptz default now()
+);
+
+-- Junction: which active ingredients make up each medication
+create table medication_ingredients (
+  id bigint generated always as identity primary key,
+  medication_id bigint not null references medications(id) on delete cascade,
+  ingredient_id bigint not null references active_ingredients(id),
+  unique(medication_id, ingredient_id)
 );
 
 -- Weight log
@@ -69,17 +85,6 @@ create table medicine_log (
   created_at timestamptz default now()
 );
 
--- Blood pressure log
-create table blood_pressure_log (
-  id uuid default gen_random_uuid() primary key,
-  recorded_at timestamptz not null default now(),
-  systolic integer not null,
-  diastolic integer not null,
-  pulse integer,
-  user_id uuid references auth.users(id) default auth.uid(),
-  created_at timestamptz default now()
-);
-
 -- Sleep log
 create table sleep_log (
   id uuid default gen_random_uuid() primary key,
@@ -91,36 +96,19 @@ create table sleep_log (
 );
 
 -- Indexes
+create index idx_active_ingredients_user on active_ingredients(user_id);
+create index idx_med_ingredients_med_id on medication_ingredients(medication_id);
+create index idx_med_ingredients_ingredient_id on medication_ingredients(ingredient_id);
 create index idx_weight_log_user_date on weight_log(user_id, recorded_at desc);
 create index idx_exercise_log_user_date on exercise_log(user_id, recorded_at desc);
 create index idx_medicine_log_user_date on medicine_log(user_id, recorded_at desc);
-create index idx_bp_log_user_date on blood_pressure_log(user_id, recorded_at desc);
 create index idx_sleep_log_user_date on sleep_log(user_id, bedtime desc);
 
--- Row Level Security
-alter table user_profile enable row level security;
-alter table medication_types enable row level security;
-alter table exercise_types enable row level security;
-alter table medications enable row level security;
+-- Row Level Security (log tables only — everything else is shared)
 alter table weight_log enable row level security;
 alter table exercise_log enable row level security;
 alter table medicine_log enable row level security;
-alter table blood_pressure_log enable row level security;
 alter table sleep_log enable row level security;
-
--- Shared lookup: any authenticated user can read
-create policy "Authenticated read medication_types"
-  on medication_types for select to authenticated using (true);
-
--- All per-user tables: own rows only
-create policy "Own profile" on user_profile for all to authenticated
-  using (user_id = auth.uid()) with check (user_id = auth.uid());
-
-create policy "Own exercise_types" on exercise_types for all to authenticated
-  using (user_id = auth.uid()) with check (user_id = auth.uid());
-
-create policy "Own medications" on medications for all to authenticated
-  using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 create policy "Own weight_log" on weight_log for all to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
@@ -129,9 +117,6 @@ create policy "Own exercise_log" on exercise_log for all to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 create policy "Own medicine_log" on medicine_log for all to authenticated
-  using (user_id = auth.uid()) with check (user_id = auth.uid());
-
-create policy "Own blood_pressure_log" on blood_pressure_log for all to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 create policy "Own sleep_log" on sleep_log for all to authenticated
