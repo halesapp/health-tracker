@@ -1,0 +1,20 @@
+{
+  "name": "health-tracker-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^8.0.0"
+  },
+  "dependencies": {
+    "@preact/preset-vite": "^2.10.3",
+    "@supabase/supabase-js": "^2.99.1",
+    "chart.js": "^4.5.1",
+    "preact": "^10.29.0"
+  }
+}
