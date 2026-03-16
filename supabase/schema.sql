@@ -85,16 +85,6 @@ create table medicine_log (
   created_at timestamptz default now()
 );
 
--- Sleep log
-create table sleep_log (
-  id uuid default gen_random_uuid() primary key,
-  bedtime timestamptz not null,
-  wake_time timestamptz not null,
-  quality integer check (quality between 1 and 5),
-  user_id uuid references auth.users(id) default auth.uid(),
-  created_at timestamptz default now()
-);
-
 -- Indexes
 create index idx_active_ingredients_user on active_ingredients(user_id);
 create index idx_med_ingredients_med_id on medication_ingredients(medication_id);
@@ -102,13 +92,10 @@ create index idx_med_ingredients_ingredient_id on medication_ingredients(ingredi
 create index idx_weight_log_user_date on weight_log(user_id, recorded_at desc);
 create index idx_exercise_log_user_date on exercise_log(user_id, recorded_at desc);
 create index idx_medicine_log_user_date on medicine_log(user_id, recorded_at desc);
-create index idx_sleep_log_user_date on sleep_log(user_id, bedtime desc);
-
 -- Row Level Security (log tables only — everything else is shared)
 alter table weight_log enable row level security;
 alter table exercise_log enable row level security;
 alter table medicine_log enable row level security;
-alter table sleep_log enable row level security;
 
 create policy "Own weight_log" on weight_log for all to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
@@ -119,5 +106,3 @@ create policy "Own exercise_log" on exercise_log for all to authenticated
 create policy "Own medicine_log" on medicine_log for all to authenticated
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 
-create policy "Own sleep_log" on sleep_log for all to authenticated
-  using (user_id = auth.uid()) with check (user_id = auth.uid());

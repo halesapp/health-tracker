@@ -3,7 +3,6 @@ const tabs = [
   { id: 'weight', label: 'Weight', icon: '\u2696' },
   { id: 'exercise', label: 'Exercise', icon: '\u269B' },
   { id: 'medication', label: 'Meds', icon: '+' },
-  { id: 'sleep', label: 'Sleep', icon: '\u2665' },
   { id: 'settings', label: 'Settings', icon: '\u2699' },
 ]
 

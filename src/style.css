@@ -446,25 +446,6 @@ input:focus, select:focus, textarea:focus {
   font-weight: 500;
 }
 
-/* ===== Sleep quality stars ===== */
-.quality-input {
-  display: flex;
-  gap: 4px;
-}
-
-.quality-input button {
-  background: none;
-  border: none;
-  font-size: 28px;
-  cursor: pointer;
-  padding: 2px;
-  color: var(--border);
-  transition: color 0.1s;
-}
-
-.quality-input button.filled { color: var(--warning); }
-.quality-input button:hover { color: var(--warning); }
-
 /* ===== Toast Notifications ===== */
 .toast {
   position: fixed;
@@ -641,16 +622,10 @@ input:focus, select:focus, textarea:focus {
 .edit-input {
   padding: 4px 6px;
   font-size: 13px;
-  border: 1px solid var(--primary);
+  border-color: var(--primary);
   border-radius: 4px;
-  background: var(--bg-card);
-  color: var(--text);
 }
 
 .edit-input-sm {
   width: 80px;
-}
-
-@media (min-width: 769px) {
-  .edit-input { font-size: 14px; }
 }

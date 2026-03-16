@@ -10,18 +10,16 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [weightRes, exerciseRes, medicineRes, sleepRes, height] = await Promise.all([
+      const [weightRes, exerciseRes, medicineRes, height] = await Promise.all([
         supabase.from('weight_log').select('*').gte('recorded_at', new Date(Date.now() - 180 * 86400000).toISOString()).order('recorded_at', { ascending: false }),
         supabase.from('exercise_log').select('*, exercise_types(name)').gte('recorded_at', new Date(Date.now() - 180 * 86400000).toISOString()).order('recorded_at', { ascending: false }).limit(10),
         supabase.from('medicine_log').select('*, medications(brand_name)').gte('recorded_at', new Date(Date.now() - 180 * 86400000).toISOString()).order('recorded_at', { ascending: false }).limit(5),
-        supabase.from('sleep_log').select('*').order('bedtime', { ascending: false }).limit(1),
         getUserHeight(),
       ])
       setData({
         weights: weightRes.data || [],
         exercises: exerciseRes.data || [],
         medicines: medicineRes.data || [],
-        latestSleep: (sleepRes.data || [])[0],
         height,
       })
     }
@@ -61,15 +59,9 @@ export default function Dashboard() {
 
   if (!data) return <div class="loading">Loading...</div>
 
-  const { weights, exercises, medicines, latestSleep, height } = data
+  const { weights, exercises, medicines, height } = data
   const latestWeight = weights[0]
   const bmi = latestWeight ? calculateBMI(latestWeight.weight_lbs, height) : '--'
-
-  let sleepDuration = '--'
-  if (latestSleep) {
-    const mins = (new Date(latestSleep.wake_time) - new Date(latestSleep.bedtime)) / 60000
-    sleepDuration = `${Math.floor(mins / 60)}h ${Math.round(mins % 60)}m`
-  }
 
   async function handleSignOut() {
     await supabase.auth.signOut()
@@ -84,11 +76,6 @@ export default function Dashboard() {
           <div class="stat-label">Weight</div>
           <div class="stat-value">{latestWeight ? latestWeight.weight_lbs : '--'}<span style="font-size:14px;font-weight:400"> lbs</span></div>
           <div class="stat-sub">BMI {bmi}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Last Sleep</div>
-          <div class="stat-value">{sleepDuration}</div>
-          <div class="stat-sub">{latestSleep ? '\u2733'.repeat(latestSleep.quality || 0) : 'No data'}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Exercises</div>

@@ -8,10 +8,9 @@ import Dashboard from './pages/dashboard.jsx'
 import Weight from './pages/weight.jsx'
 import Exercise from './pages/exercise.jsx'
 import Medication from './pages/medication.jsx'
-import Sleep from './pages/sleep.jsx'
 import Settings from './pages/settings.jsx'
 
-const pages = { dashboard: Dashboard, weight: Weight, exercise: Exercise, medication: Medication, sleep: Sleep, settings: Settings }
+const pages = { dashboard: Dashboard, weight: Weight, exercise: Exercise, medication: Medication, settings: Settings }
 
 function App() {
   const [user, setUser] = useState(null)

@@ -65,10 +65,3 @@ export function showToast(message, type = 'success') {
     setTimeout(() => toast.remove(), 300)
   }, 2500)
 }
-
-export function formatDuration(minutes) {
-  const h = Math.floor(minutes / 60)
-  const m = Math.round(minutes % 60)
-  if (h === 0) return `${m}m`
-  return `${h}h ${m}m`
-}
