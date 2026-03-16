@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'preact/hooks'
 import { supabase } from '../lib/supabase.js'
-import { formatDateTimeFull, toLocalDatetimeValue, calculateBMI, getUserHeight, showToast } from '../lib/utils.js'
+import { formatDateTimeFull, toLocalDatetimeValue, toDatetimeLocalValue, calculateBMI, getUserHeight, showToast } from '../lib/utils.js'
 import Chart from 'chart.js/auto'
 
 export default function Weight() {
@@ -9,6 +9,9 @@ export default function Weight() {
   const [dt, setDt] = useState(toLocalDatetimeValue())
   const [lbs, setLbs] = useState('')
   const [busy, setBusy] = useState(false)
+  const [editId, setEditId] = useState(null)
+  const [editDt, setEditDt] = useState('')
+  const [editLbs, setEditLbs] = useState('')
   const chartRef = useRef(null)
   const chartInstance = useRef(null)
 
@@ -34,7 +37,7 @@ export default function Weight() {
     chartInstance.current = new Chart(chartRef.current, {
       type: 'line',
       data: {
-        labels: sorted.map(w => new Date(w.recorded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })),
+        labels: sorted.map(w => new Date(w.recorded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit', timeZone: 'UTC' })),
         datasets: [{
           label: 'Weight (lbs)', data: sorted.map(w => w.weight_lbs),
           borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)',
@@ -65,6 +68,27 @@ export default function Weight() {
     showToast('Weight saved')
     setLbs('')
     setWeights([data, ...weights])
+  }
+
+  function startEdit(w) {
+    setEditId(w.id)
+    setEditDt(toDatetimeLocalValue(w.recorded_at))
+    setEditLbs(String(w.weight_lbs))
+  }
+
+  function cancelEdit() {
+    setEditId(null)
+  }
+
+  async function saveEdit(id) {
+    const { data, error } = await supabase.from('weight_log')
+      .update({ recorded_at: editDt, weight_lbs: parseFloat(editLbs) })
+      .eq('id', id)
+      .select().single()
+    if (error) return showToast(error.message, 'error')
+    setWeights(weights.map(w => w.id === id ? data : w))
+    setEditId(null)
+    showToast('Updated')
   }
 
   async function handleDelete(id) {
@@ -109,12 +133,23 @@ export default function Weight() {
           <table>
             <thead><tr><th>Date</th><th>lbs</th><th>BMI</th><th></th></tr></thead>
             <tbody>
-              {weights.map(w => (
+              {weights.map(w => editId === w.id ? (
+                <tr key={w.id}>
+                  <td><input type="datetime-local" class="edit-input" value={editDt} onInput={e => setEditDt(e.target.value)} /></td>
+                  <td><input type="number" step="0.1" class="edit-input edit-input-sm" value={editLbs} onInput={e => setEditLbs(e.target.value)} /></td>
+                  <td>{calculateBMI(editLbs || 0, height)}</td>
+                  <td class="td-actions">
+                    <button class="btn-icon" title="Save" onClick={() => saveEdit(w.id)}>{'\u2714'}</button>
+                    <button class="btn-icon" title="Cancel" onClick={cancelEdit}>{'\u2716'}</button>
+                  </td>
+                </tr>
+              ) : (
                 <tr key={w.id}>
                   <td>{formatDateTimeFull(w.recorded_at)}</td>
                   <td>{w.weight_lbs}</td>
                   <td>{calculateBMI(w.weight_lbs, height)}</td>
                   <td class="td-actions">
+                    <button class="btn-icon" title="Edit" onClick={() => startEdit(w)}>{'\u270E'}</button>
                     <button class="btn-icon" title="Delete" onClick={() => handleDelete(w.id)}>{'\uD83D\uDDD1'}</button>
                   </td>
                 </tr>

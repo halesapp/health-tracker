@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'preact/hooks'
 import { supabase } from '../lib/supabase.js'
-import { formatDateTime, toLocalDatetimeValue, showToast } from '../lib/utils.js'
+import { formatDateTime, toLocalDatetimeValue, toDatetimeLocalValue, showToast } from '../lib/utils.js'
 
 export default function Medication() {
   const [meds, setMeds] = useState([])
@@ -9,6 +9,10 @@ export default function Medication() {
   const [medId, setMedId] = useState('')
   const [qty, setQty] = useState('1')
   const [busy, setBusy] = useState(false)
+  const [editId, setEditId] = useState(null)
+  const [editDt, setEditDt] = useState('')
+  const [editMedId, setEditMedId] = useState('')
+  const [editQty, setEditQty] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -35,6 +39,28 @@ export default function Medication() {
     setMedId('')
     setQty('1')
     setLogs([data, ...logs])
+  }
+
+  function startEdit(l) {
+    setEditId(l.id)
+    setEditDt(toDatetimeLocalValue(l.recorded_at))
+    setEditMedId(String(l.medication_id))
+    setEditQty(String(l.quantity))
+  }
+
+  function cancelEdit() {
+    setEditId(null)
+  }
+
+  async function saveEdit(id) {
+    const { data, error } = await supabase.from('medicine_log')
+      .update({ recorded_at: editDt, medication_id: parseInt(editMedId), quantity: parseFloat(editQty) })
+      .eq('id', id)
+      .select('*, medications(brand_name, medication_ingredients(active_ingredients(ingredient_name, dose, dose_unit)))').single()
+    if (error) return showToast(error.message, 'error')
+    setLogs(logs.map(l => l.id === id ? data : l))
+    setEditId(null)
+    showToast('Updated')
   }
 
   async function handleDelete(id) {
@@ -87,6 +113,27 @@ export default function Medication() {
             <thead><tr><th>Date</th><th>Med</th><th>Qty</th><th>Total Dose</th><th></th></tr></thead>
             <tbody>
               {logs.map(l => {
+                if (editId === l.id) {
+                  const editMed = meds.find(m => m.id === parseInt(editMedId))
+                  const editIngs = (editMed?.medication_ingredients || []).map(i => i.active_ingredients).filter(Boolean)
+                  const editTotalDose = editIngs.map(a => `${(parseFloat(editQty) || 0) * a.dose}${a.dose_unit} ${a.ingredient_name}`).join(' + ')
+                  return (
+                    <tr key={l.id}>
+                      <td><input type="datetime-local" class="edit-input" value={editDt} onInput={e => setEditDt(e.target.value)} /></td>
+                      <td>
+                        <select class="edit-input" value={editMedId} onChange={e => setEditMedId(e.target.value)}>
+                          {meds.map(m => <option key={m.id} value={m.id}>{m.brand_name}</option>)}
+                        </select>
+                      </td>
+                      <td><input type="number" step="0.5" class="edit-input edit-input-sm" value={editQty} onInput={e => setEditQty(e.target.value)} /></td>
+                      <td>{editTotalDose}</td>
+                      <td class="td-actions">
+                        <button class="btn-icon" title="Save" onClick={() => saveEdit(l.id)}>{'\u2714'}</button>
+                        <button class="btn-icon" title="Cancel" onClick={cancelEdit}>{'\u2716'}</button>
+                      </td>
+                    </tr>
+                  )
+                }
                 const ings = (l.medications?.medication_ingredients || []).map(i => i.active_ingredients).filter(Boolean)
                 const totalDose = ings.map(a => `${l.quantity * a.dose}${a.dose_unit} ${a.ingredient_name}`).join(' + ')
                 return (
@@ -96,6 +143,7 @@ export default function Medication() {
                     <td>{l.quantity}</td>
                     <td>{totalDose}</td>
                     <td class="td-actions">
+                      <button class="btn-icon" title="Edit" onClick={() => startEdit(l)}>{'\u270E'}</button>
                       <button class="btn-icon" title="Delete" onClick={() => handleDelete(l.id)}>{'\uD83D\uDDD1'}</button>
                     </td>
                   </tr>

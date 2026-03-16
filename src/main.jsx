@@ -16,7 +16,7 @@ const pages = { dashboard: Dashboard, weight: Weight, exercise: Exercise, medica
 function App() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState(window.location.hash.slice(1) || 'dashboard')
+  const [tab, setTab] = useState('dashboard')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -29,17 +29,7 @@ function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  useEffect(() => {
-    const onHash = () => {
-      const h = window.location.hash.slice(1)
-      if (pages[h]) setTab(h)
-    }
-    window.addEventListener('hashchange', onHash)
-    return () => window.removeEventListener('hashchange', onHash)
-  }, [])
-
   function navigate(t) {
-    window.location.hash = t
     setTab(t)
   }
 

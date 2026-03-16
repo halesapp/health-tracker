@@ -636,3 +636,21 @@ input:focus, select:focus, textarea:focus {
   border-bottom-color: var(--primary);
   color: var(--primary);
 }
+
+/* ===== Inline edit inputs in tables ===== */
+.edit-input {
+  padding: 4px 6px;
+  font-size: 13px;
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  background: var(--bg-card);
+  color: var(--text);
+}
+
+.edit-input-sm {
+  width: 80px;
+}
+
+@media (min-width: 769px) {
+  .edit-input { font-size: 14px; }
+}

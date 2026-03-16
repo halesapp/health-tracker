@@ -37,7 +37,7 @@ export default function Dashboard() {
     chartInstance.current = new Chart(chartRef.current, {
       type: 'line',
       data: {
-        labels: sorted.map(w => new Date(w.recorded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+        labels: sorted.map(w => new Date(w.recorded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })),
         datasets: [{
           label: 'Weight (lbs)',
           data: sorted.map(w => w.weight_lbs),

@@ -57,7 +57,7 @@ export default function Exercise() {
   // Group by date
   const byDate = {}
   for (const e of exercises) {
-    const key = new Date(e.recorded_at).toLocaleDateString()
+    const key = new Date(e.recorded_at).toLocaleDateString('en-US', { timeZone: 'UTC' })
     if (!byDate[key]) byDate[key] = []
     byDate[key].push(e)
   }

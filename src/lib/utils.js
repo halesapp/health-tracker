@@ -2,22 +2,31 @@ import { supabase } from './supabase.js'
 
 export function formatDate(dateStr) {
   return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric'
+    month: 'short', day: 'numeric', year: 'numeric',
+    timeZone: 'UTC',
   })
 }
 
 export function formatDateTime(dateStr) {
   return new Date(dateStr).toLocaleString('en-US', {
     month: 'short', day: 'numeric',
-    hour: 'numeric', minute: '2-digit'
+    hour: 'numeric', minute: '2-digit',
+    timeZone: 'UTC',
   })
 }
 
 export function formatDateTimeFull(dateStr) {
   return new Date(dateStr).toLocaleString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
-    hour: 'numeric', minute: '2-digit'
+    hour: 'numeric', minute: '2-digit',
+    timeZone: 'UTC',
   })
+}
+
+// Extract YYYY-MM-DDTHH:MM from a stored timestamp for datetime-local inputs.
+// Avoids Date object so no timezone conversion happens.
+export function toDatetimeLocalValue(dateStr) {
+  return dateStr.replace(' ', 'T').slice(0, 16)
 }
 
 export function toLocalDatetimeValue(date = new Date()) {
