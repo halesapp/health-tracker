@@ -7,7 +7,6 @@ export default function Settings() {
   const [ingredients, setIngredients] = useState([])
   const [meds, setMeds] = useState([])
   const [medTypes, setMedTypes] = useState([])
-  const [exerciseTypes, setExerciseTypes] = useState([])
   const [heightFt, setHeightFt] = useState('5')
   const [heightIn, setHeightIn] = useState('5')
 
@@ -34,26 +33,17 @@ export default function Settings() {
   const [editingMedType, setEditingMedType] = useState(null)
   const [editMedTypeName, setEditMedTypeName] = useState('')
 
-  // Exercise type state
-  const [newExName, setNewExName] = useState('')
-  const [newExUnit, setNewExUnit] = useState('reps')
-  const [editingEx, setEditingEx] = useState(null)
-  const [editExName, setEditExName] = useState('')
-  const [editExUnit, setEditExUnit] = useState('')
-
   useEffect(() => {
     async function load() {
-      const [ingRes, medsRes, mtRes, etRes, profRes] = await Promise.all([
-        supabase.from('active_ingredients').select('*').order('ingredient_name'),
-        supabase.from('medications').select('*, medication_types(name), medication_ingredients(ingredient_id)').order('brand_name'),
-        supabase.from('medication_types').select('*').order('name'),
-        supabase.from('exercise_types').select('*').order('name'),
-        supabase.from('user_profile').select('*').limit(1).maybeSingle(),
+      const [ingRes, medsRes, mtRes, profRes] = await Promise.all([
+        supabase.from('health_active_ingredients').select('*').order('ingredient_name'),
+        supabase.from('health_medications').select('*, health_medication_types(name), health_medication_ingredients(ingredient_id)').order('brand_name'),
+        supabase.from('health_medication_types').select('*').order('name'),
+        supabase.from('health_user_profile').select('*').limit(1).maybeSingle(),
       ])
       setIngredients(ingRes.data || [])
       setMeds(medsRes.data || [])
       setMedTypes(mtRes.data || [])
-      setExerciseTypes(etRes.data || [])
       if (profRes.data) {
         const total = profRes.data.height_inches || 65
         setHeightFt(String(Math.floor(total / 12)))
@@ -70,7 +60,7 @@ export default function Settings() {
   // --- Active Ingredients ---
   async function addIngredient(e) {
     e.preventDefault()
-    const { data, error } = await supabase.from('active_ingredients').insert({
+    const { data, error } = await supabase.from('health_active_ingredients').insert({
       ingredient_name: newIngName.trim(), dose: parseFloat(newIngDose), dose_unit: newIngUnit,
     }).select().single()
     if (error) return showToast(error.message, 'error')
@@ -88,7 +78,7 @@ export default function Settings() {
   }
 
   async function saveIngEdit(id) {
-    const { data, error } = await supabase.from('active_ingredients').update({
+    const { data, error } = await supabase.from('health_active_ingredients').update({
       ingredient_name: editIngName.trim(), dose: parseFloat(editIngDose), dose_unit: editIngUnit,
     }).eq('id', id).select().single()
     if (error) return showToast(error.message, 'error')
@@ -98,8 +88,8 @@ export default function Settings() {
   }
 
   async function deleteIngredient(id) {
-    if (!confirm('Delete this ingredient? It will be removed from any medications using it.')) return
-    const { error } = await supabase.from('active_ingredients').delete().eq('id', id)
+    if (!confirm('Delete this ingredient? It will be removed from any health_medications using it.')) return
+    const { error } = await supabase.from('health_active_ingredients').delete().eq('id', id)
     if (error) return showToast(error.message, 'error')
     setIngredients(ingredients.filter(i => i.id !== id))
     showToast('Deleted')
@@ -112,12 +102,12 @@ export default function Settings() {
     if (selectedIds.length === 0) return showToast('Select at least one ingredient', 'error')
     const row = { brand_name: newBrandName.trim() }
     if (newMedType) row.type_id = parseInt(newMedType)
-    const { data: med, error } = await supabase.from('medications').insert(row).select('*, medication_types(name)').single()
+    const { data: med, error } = await supabase.from('health_medications').insert(row).select('*, health_medication_types(name)').single()
     if (error) return showToast(error.message, 'error')
     const links = selectedIds.map(ingredient_id => ({ medication_id: med.id, ingredient_id: parseInt(ingredient_id) }))
-    const { error: linkErr } = await supabase.from('medication_ingredients').insert(links)
+    const { error: linkErr } = await supabase.from('health_medication_ingredients').insert(links)
     if (linkErr) return showToast(linkErr.message, 'error')
-    med.medication_ingredients = links.map(l => ({ ingredient_id: l.ingredient_id }))
+    med.health_medication_ingredients = links.map(l => ({ ingredient_id: l.ingredient_id }))
     setMeds([...meds, med].sort((a, b) => a.brand_name.localeCompare(b.brand_name)))
     setNewBrandName('')
     setNewMedType('')
@@ -129,22 +119,22 @@ export default function Settings() {
     setEditingMed(m.id)
     setEditBrandName(m.brand_name)
     setEditMedType(m.type_id ? String(m.type_id) : '')
-    const ids = (m.medication_ingredients || []).map(i => String(i.ingredient_id))
+    const ids = (m.health_medication_ingredients || []).map(i => String(i.ingredient_id))
     setEditIngIds(ids.length ? ids : [''])
   }
 
   async function saveMedEdit(id) {
     const selectedIds = editIngIds.filter(id => id)
     if (selectedIds.length === 0) return showToast('Select at least one ingredient', 'error')
-    const { error } = await supabase.from('medications').update({
+    const { error } = await supabase.from('health_medications').update({
       brand_name: editBrandName.trim(), type_id: editMedType ? parseInt(editMedType) : null,
     }).eq('id', id)
     if (error) return showToast(error.message, 'error')
-    await supabase.from('medication_ingredients').delete().eq('medication_id', id)
+    await supabase.from('health_medication_ingredients').delete().eq('medication_id', id)
     const links = selectedIds.map(ingredient_id => ({ medication_id: id, ingredient_id: parseInt(ingredient_id) }))
-    const { error: linkErr } = await supabase.from('medication_ingredients').insert(links)
+    const { error: linkErr } = await supabase.from('health_medication_ingredients').insert(links)
     if (linkErr) return showToast(linkErr.message, 'error')
-    const { data: updated } = await supabase.from('medications').select('*, medication_types(name), medication_ingredients(ingredient_id)').eq('id', id).single()
+    const { data: updated } = await supabase.from('health_medications').select('*, health_medication_types(name), health_medication_ingredients(ingredient_id)').eq('id', id).single()
     setMeds(meds.map(m => m.id === id ? updated : m))
     setEditingMed(null)
     showToast('Updated')
@@ -152,14 +142,14 @@ export default function Settings() {
 
   async function deleteMed(id) {
     if (!confirm('Delete this medication?')) return
-    const { error } = await supabase.from('medications').delete().eq('id', id)
+    const { error } = await supabase.from('health_medications').delete().eq('id', id)
     if (error) return showToast(error.message, 'error')
     setMeds(meds.filter(m => m.id !== id))
     showToast('Deleted')
   }
 
   function ingredientNamesForMed(m) {
-    const ids = (m.medication_ingredients || []).map(i => i.ingredient_id)
+    const ids = (m.health_medication_ingredients || []).map(i => i.ingredient_id)
     return ingredients.filter(i => ids.includes(i.id)).map(ingredientLabel).join(', ')
   }
 
@@ -188,7 +178,7 @@ export default function Settings() {
   // --- Medication Types ---
   async function addMedType(e) {
     e.preventDefault()
-    const { data, error } = await supabase.from('medication_types').insert({ name: newMedTypeName.trim() }).select().single()
+    const { data, error } = await supabase.from('health_medication_types').insert({ name: newMedTypeName.trim() }).select().single()
     if (error) return showToast(error.message, 'error')
     setMedTypes([...medTypes, data].sort((a, b) => a.name.localeCompare(b.name)))
     setNewMedTypeName('')
@@ -201,7 +191,7 @@ export default function Settings() {
   }
 
   async function saveMedTypeEdit(id) {
-    const { data, error } = await supabase.from('medication_types').update({ name: editMedTypeName.trim() }).eq('id', id).select().single()
+    const { data, error } = await supabase.from('health_medication_types').update({ name: editMedTypeName.trim() }).eq('id', id).select().single()
     if (error) return showToast(error.message, 'error')
     setMedTypes(medTypes.map(t => t.id === id ? data : t))
     setEditingMedType(null)
@@ -210,41 +200,9 @@ export default function Settings() {
 
   async function deleteMedType(id) {
     if (!confirm('Delete this type?')) return
-    const { error } = await supabase.from('medication_types').delete().eq('id', id)
+    const { error } = await supabase.from('health_medication_types').delete().eq('id', id)
     if (error) return showToast(error.message, 'error')
     setMedTypes(medTypes.filter(t => t.id !== id))
-    showToast('Deleted')
-  }
-
-  // --- Exercise Types ---
-  async function addExType(e) {
-    e.preventDefault()
-    const { data, error } = await supabase.from('exercise_types').insert({ name: newExName.trim(), default_unit: newExUnit }).select().single()
-    if (error) return showToast(error.message, 'error')
-    setExerciseTypes([...exerciseTypes, data].sort((a, b) => a.name.localeCompare(b.name)))
-    setNewExName('')
-    showToast('Exercise type added')
-  }
-
-  function startExEdit(t) {
-    setEditingEx(t.id)
-    setEditExName(t.name)
-    setEditExUnit(t.default_unit)
-  }
-
-  async function saveExEdit(id) {
-    const { data, error } = await supabase.from('exercise_types').update({ name: editExName.trim(), default_unit: editExUnit }).eq('id', id).select().single()
-    if (error) return showToast(error.message, 'error')
-    setExerciseTypes(exerciseTypes.map(t => t.id === id ? data : t))
-    setEditingEx(null)
-    showToast('Updated')
-  }
-
-  async function deleteExType(id) {
-    if (!confirm('Delete this exercise type?')) return
-    const { error } = await supabase.from('exercise_types').delete().eq('id', id)
-    if (error) return showToast(error.message, 'error')
-    setExerciseTypes(exerciseTypes.filter(t => t.id !== id))
     showToast('Deleted')
   }
 
@@ -252,7 +210,7 @@ export default function Settings() {
   async function saveHeight(e) {
     e.preventDefault()
     const totalInches = parseInt(heightFt) * 12 + parseInt(heightIn)
-    const { error } = await supabase.from('user_profile').upsert({ height_inches: totalInches })
+    const { error } = await supabase.from('health_user_profile').upsert({ height_inches: totalInches })
     if (error) return showToast(error.message, 'error')
     clearCachedHeight()
     showToast('Height saved')
@@ -264,9 +222,8 @@ export default function Settings() {
 
       <div class="section-toggle">
         <button class={section === 'ingredients' ? 'active' : ''} onClick={() => setSection('ingredients')}>Ingredients</button>
-        <button class={section === 'medications' ? 'active' : ''} onClick={() => setSection('medications')}>Meds</button>
+        <button class={section === 'health_medications' ? 'active' : ''} onClick={() => setSection('health_medications')}>Meds</button>
         <button class={section === 'medtypes' ? 'active' : ''} onClick={() => setSection('medtypes')}>Med Types</button>
-        <button class={section === 'exercises' ? 'active' : ''} onClick={() => setSection('exercises')}>Exercises</button>
         <button class={section === 'profile' ? 'active' : ''} onClick={() => setSection('profile')}>Profile</button>
       </div>
 
@@ -336,7 +293,7 @@ export default function Settings() {
         </div>
       )}
 
-      {section === 'medications' && (
+      {section === 'health_medications' && (
         <div class="card">
           <h2>Medications</h2>
           <form onSubmit={addMed} class="form-stack">
@@ -383,7 +340,7 @@ export default function Settings() {
                   <tr key={m.id}>
                     <td>{m.brand_name}</td>
                     <td>{ingredientNamesForMed(m)}</td>
-                    <td>{m.medication_types?.name || '--'}</td>
+                    <td>{m.health_medication_types?.name || '--'}</td>
                     <td class="td-actions">
                       <button class="btn-icon" title="Edit" onClick={() => startMedEdit(m)}>{'\u270E'}</button>
                       <button class="btn-icon" title="Delete" onClick={() => deleteMed(m.id)}>{'\uD83D\uDDD1'}</button>
@@ -393,7 +350,7 @@ export default function Settings() {
               </tbody>
             </table>
           </div>
-          {meds.length === 0 && <p class="empty">No medications configured</p>}
+          {meds.length === 0 && <p class="empty">No health_medications configured</p>}
         </div>
       )}
 
@@ -439,68 +396,6 @@ export default function Settings() {
             </table>
           </div>
           {medTypes.length === 0 && <p class="empty">No medication types</p>}
-        </div>
-      )}
-
-      {section === 'exercises' && (
-        <div class="card">
-          <h2>Exercise Types</h2>
-          <form onSubmit={addExType} class="form-stack">
-            <div class="form-row">
-              <div class="field field-half">
-                <label>Name</label>
-                <input type="text" value={newExName} onInput={e => setNewExName(e.target.value)} placeholder="Push-ups" required />
-              </div>
-              <div class="field field-half">
-                <label>Default Unit</label>
-                <select value={newExUnit} onChange={e => setNewExUnit(e.target.value)}>
-                  <option value="reps">reps</option>
-                  <option value="seconds">seconds</option>
-                </select>
-              </div>
-            </div>
-            <button type="submit" class="btn btn-primary btn-block">Add Exercise Type</button>
-          </form>
-
-          <div class="table-scroll" style="margin-top:16px">
-            <table>
-              <thead><tr><th>Name</th><th>Unit</th><th></th></tr></thead>
-              <tbody>
-                {exerciseTypes.map(t => (
-                  <tr key={t.id}>
-                    <td>
-                      {editingEx === t.id ? (
-                        <input type="text" value={editExName} onInput={e => setEditExName(e.target.value)} autofocus />
-                      ) : (
-                        <span class="editable-text" onClick={() => startExEdit(t)}>{t.name}</span>
-                      )}
-                    </td>
-                    <td>
-                      {editingEx === t.id ? (
-                        <select value={editExUnit} onChange={e => setEditExUnit(e.target.value)}>
-                          <option value="reps">reps</option>
-                          <option value="seconds">seconds</option>
-                        </select>
-                      ) : (
-                        t.default_unit
-                      )}
-                    </td>
-                    <td class="td-actions">
-                      {editingEx === t.id ? (
-                        <>
-                          <button class="btn-icon" title="Save" onClick={() => saveExEdit(t.id)}>{'\u2714'}</button>
-                          <button class="btn-icon" title="Cancel" onClick={() => setEditingEx(null)}>{'\u2716'}</button>
-                        </>
-                      ) : (
-                        <button class="btn-icon" title="Delete" onClick={() => deleteExType(t.id)}>{'\uD83D\uDDD1'}</button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {exerciseTypes.length === 0 && <p class="empty">No exercise types</p>}
         </div>
       )}
 

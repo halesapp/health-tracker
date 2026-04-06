@@ -416,36 +416,6 @@ input:focus, select:focus, textarea:focus {
   .btn { padding: 10px 18px; font-size: 14px; }
 }
 
-/* ===== Exercise Chips ===== */
-.exercise-days {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.exercise-day h3 {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-heading);
-  margin: 0 0 6px;
-}
-
-.exercise-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.chip {
-  display: inline-block;
-  padding: 5px 12px;
-  background: var(--primary-light);
-  color: var(--primary);
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 500;
-}
-
 /* ===== Toast Notifications ===== */
 .toast {
   position: fixed;

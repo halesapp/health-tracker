@@ -18,7 +18,7 @@ export default function Weight() {
   useEffect(() => {
     async function load() {
       const [res, h] = await Promise.all([
-        supabase.from('weight_log').select('*')
+        supabase.from('health_weight_log').select('*')
           .gte('recorded_at', new Date(Date.now() - 180 * 86400000).toISOString())
           .order('recorded_at', { ascending: false }),
         getUserHeight(),
@@ -60,7 +60,7 @@ export default function Weight() {
   async function handleSubmit(e) {
     e.preventDefault()
     setBusy(true)
-    const { data, error } = await supabase.from('weight_log')
+    const { data, error } = await supabase.from('health_weight_log')
       .insert({ recorded_at: dt, weight_lbs: parseFloat(lbs) })
       .select().single()
     setBusy(false)
@@ -81,7 +81,7 @@ export default function Weight() {
   }
 
   async function saveEdit(id) {
-    const { data, error } = await supabase.from('weight_log')
+    const { data, error } = await supabase.from('health_weight_log')
       .update({ recorded_at: editDt, weight_lbs: parseFloat(editLbs) })
       .eq('id', id)
       .select().single()
@@ -93,7 +93,7 @@ export default function Weight() {
 
   async function handleDelete(id) {
     if (!confirm('Delete this entry?')) return
-    const { error } = await supabase.from('weight_log').delete().eq('id', id)
+    const { error } = await supabase.from('health_weight_log').delete().eq('id', id)
     if (error) return showToast(error.message, 'error')
     setWeights(weights.filter(w => w.id !== id))
     showToast('Deleted')

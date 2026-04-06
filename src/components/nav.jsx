@@ -1,7 +1,6 @@
 const tabs = [
   { id: 'dashboard', label: 'Home', icon: '\u2302' },
   { id: 'weight', label: 'Weight', icon: '\u2696' },
-  { id: 'exercise', label: 'Exercise', icon: '\u269B' },
   { id: 'medication', label: 'Meds', icon: '+' },
   { id: 'settings', label: 'Settings', icon: '\u2699' },
 ]

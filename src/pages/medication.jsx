@@ -17,8 +17,8 @@ export default function Medication() {
   useEffect(() => {
     async function load() {
       const [medsRes, logRes] = await Promise.all([
-        supabase.from('medications').select('*, medication_types(name), medication_ingredients(active_ingredients(ingredient_name, dose, dose_unit))').order('brand_name'),
-        supabase.from('medicine_log').select('*, medications(brand_name, medication_ingredients(active_ingredients(ingredient_name, dose, dose_unit)))').order('recorded_at', { ascending: false }),
+        supabase.from('health_medications').select('*, health_medication_types(name), health_medication_ingredients(health_active_ingredients(ingredient_name, dose, dose_unit))').order('brand_name'),
+        supabase.from('health_medicine_log').select('*, health_medications(brand_name, health_medication_ingredients(health_active_ingredients(ingredient_name, dose, dose_unit)))').order('recorded_at', { ascending: false }),
       ])
       setMeds(medsRes.data || [])
       setLogs(logRes.data || [])
@@ -29,9 +29,9 @@ export default function Medication() {
   async function handleSubmit(e) {
     e.preventDefault()
     setBusy(true)
-    const { data, error } = await supabase.from('medicine_log')
+    const { data, error } = await supabase.from('health_medicine_log')
       .insert({ recorded_at: dt, medication_id: parseInt(medId), quantity: parseFloat(qty) })
-      .select('*, medications(brand_name, medication_ingredients(active_ingredients(ingredient_name, dose, dose_unit)))').single()
+      .select('*, health_medications(brand_name, health_medication_ingredients(health_active_ingredients(ingredient_name, dose, dose_unit)))').single()
     setBusy(false)
     if (error) return showToast(error.message, 'error')
     showToast('Medication logged')
@@ -53,10 +53,10 @@ export default function Medication() {
   }
 
   async function saveEdit(id) {
-    const { data, error } = await supabase.from('medicine_log')
+    const { data, error } = await supabase.from('health_medicine_log')
       .update({ recorded_at: editDt, medication_id: parseInt(editMedId), quantity: parseFloat(editQty) })
       .eq('id', id)
-      .select('*, medications(brand_name, medication_ingredients(active_ingredients(ingredient_name, dose, dose_unit)))').single()
+      .select('*, health_medications(brand_name, health_medication_ingredients(health_active_ingredients(ingredient_name, dose, dose_unit)))').single()
     if (error) return showToast(error.message, 'error')
     setLogs(logs.map(l => l.id === id ? data : l))
     setEditId(null)
@@ -65,7 +65,7 @@ export default function Medication() {
 
   async function handleDelete(id) {
     if (!confirm('Delete this log entry?')) return
-    const { error } = await supabase.from('medicine_log').delete().eq('id', id)
+    const { error } = await supabase.from('health_medicine_log').delete().eq('id', id)
     if (error) return showToast(error.message, 'error')
     setLogs(logs.filter(l => l.id !== id))
     showToast('Deleted')
@@ -90,7 +90,7 @@ export default function Medication() {
               <select value={medId} onChange={e => setMedId(e.target.value)} required>
                 <option value="">Select...</option>
                 {meds.map(m => {
-                  const ingredients = (m.medication_ingredients || []).map(i => i.active_ingredients).filter(Boolean).map(a => `${a.ingredient_name} ${a.dose}${a.dose_unit}`).join(' + ')
+                  const ingredients = (m.health_medication_ingredients || []).map(i => i.health_active_ingredients).filter(Boolean).map(a => `${a.ingredient_name} ${a.dose}${a.dose_unit}`).join(' + ')
                   return <option key={m.id} value={m.id}>{m.brand_name}{ingredients ? ` (${ingredients})` : ''}</option>
                 })}
               </select>
@@ -115,7 +115,7 @@ export default function Medication() {
               {logs.map(l => {
                 if (editId === l.id) {
                   const editMed = meds.find(m => m.id === parseInt(editMedId))
-                  const editIngs = (editMed?.medication_ingredients || []).map(i => i.active_ingredients).filter(Boolean)
+                  const editIngs = (editMed?.health_medication_ingredients || []).map(i => i.health_active_ingredients).filter(Boolean)
                   const editTotalDose = editIngs.map(a => `${(parseFloat(editQty) || 0) * a.dose}${a.dose_unit} ${a.ingredient_name}`).join(' + ')
                   return (
                     <tr key={l.id}>
@@ -134,12 +134,12 @@ export default function Medication() {
                     </tr>
                   )
                 }
-                const ings = (l.medications?.medication_ingredients || []).map(i => i.active_ingredients).filter(Boolean)
+                const ings = (l.health_medications?.health_medication_ingredients || []).map(i => i.health_active_ingredients).filter(Boolean)
                 const totalDose = ings.map(a => `${l.quantity * a.dose}${a.dose_unit} ${a.ingredient_name}`).join(' + ')
                 return (
                   <tr key={l.id}>
                     <td>{formatDateTime(l.recorded_at)}</td>
-                    <td>{l.medications?.brand_name || '?'}</td>
+                    <td>{l.health_medications?.brand_name || '?'}</td>
                     <td>{l.quantity}</td>
                     <td>{totalDose}</td>
                     <td class="td-actions">

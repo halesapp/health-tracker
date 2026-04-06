@@ -10,15 +10,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [weightRes, exerciseRes, medicineRes, height] = await Promise.all([
-        supabase.from('weight_log').select('*').gte('recorded_at', new Date(Date.now() - 180 * 86400000).toISOString()).order('recorded_at', { ascending: false }),
-        supabase.from('exercise_log').select('*, exercise_types(name)').gte('recorded_at', new Date(Date.now() - 180 * 86400000).toISOString()).order('recorded_at', { ascending: false }).limit(10),
-        supabase.from('medicine_log').select('*, medications(brand_name)').gte('recorded_at', new Date(Date.now() - 180 * 86400000).toISOString()).order('recorded_at', { ascending: false }).limit(5),
+      const [weightRes, medicineRes, height] = await Promise.all([
+        supabase.from('health_weight_log').select('*').gte('recorded_at', new Date(Date.now() - 180 * 86400000).toISOString()).order('recorded_at', { ascending: false }),
+        supabase.from('health_medicine_log').select('*, health_medications(brand_name)').gte('recorded_at', new Date(Date.now() - 180 * 86400000).toISOString()).order('recorded_at', { ascending: false }).limit(5),
         getUserHeight(),
       ])
       setData({
         weights: weightRes.data || [],
-        exercises: exerciseRes.data || [],
         medicines: medicineRes.data || [],
         height,
       })
@@ -59,7 +57,7 @@ export default function Dashboard() {
 
   if (!data) return <div class="loading">Loading...</div>
 
-  const { weights, exercises, medicines, height } = data
+  const { weights, medicines, height } = data
   const latestWeight = weights[0]
   const bmi = latestWeight ? calculateBMI(latestWeight.weight_lbs, height) : '--'
 
@@ -77,11 +75,6 @@ export default function Dashboard() {
           <div class="stat-value">{latestWeight ? latestWeight.weight_lbs : '--'}<span style="font-size:14px;font-weight:400"> lbs</span></div>
           <div class="stat-sub">BMI {bmi}</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">Exercises</div>
-          <div class="stat-value">{exercises.length}</div>
-          <div class="stat-sub">Recent entries</div>
-        </div>
       </div>
 
       <div class="card">
@@ -89,41 +82,22 @@ export default function Dashboard() {
         <div class="chart-container"><canvas ref={chartRef} /></div>
       </div>
 
-      <div class="two-col">
-        <div class="card">
-          <h2>Recent Exercises</h2>
-          {exercises.length === 0 ? <p class="empty">No exercises yet</p> : (
-            <table>
-              <thead><tr><th>Date</th><th>Exercise</th><th>Total</th></tr></thead>
-              <tbody>
-                {exercises.map(e => (
-                  <tr key={e.id}>
-                    <td>{formatDateTime(e.recorded_at)}</td>
-                    <td>{e.exercise_types?.name || '?'}</td>
-                    <td>{e.sets}x{e.reps} {e.unit}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-        <div class="card">
-          <h2>Recent Medications</h2>
-          {medicines.length === 0 ? <p class="empty">No meds logged</p> : (
-            <table>
-              <thead><tr><th>Date</th><th>Med</th><th>Qty</th></tr></thead>
-              <tbody>
-                {medicines.map(m => (
-                  <tr key={m.id}>
-                    <td>{formatDateTime(m.recorded_at)}</td>
-                    <td>{m.medications?.brand_name || '?'}</td>
-                    <td>{m.quantity}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+      <div class="card">
+        <h2>Recent Medications</h2>
+        {medicines.length === 0 ? <p class="empty">No meds logged</p> : (
+          <table>
+            <thead><tr><th>Date</th><th>Med</th><th>Qty</th></tr></thead>
+            <tbody>
+              {medicines.map(m => (
+                <tr key={m.id}>
+                  <td>{formatDateTime(m.recorded_at)}</td>
+                  <td>{m.health_medications?.brand_name || '?'}</td>
+                  <td>{m.quantity}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <div style="text-align:center;padding:24px 0 8px">

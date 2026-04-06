@@ -45,7 +45,7 @@ let _cachedHeight = null
 
 export async function getUserHeight() {
   if (_cachedHeight) return _cachedHeight
-  const { data } = await supabase.from('user_profile').select('height_inches').single()
+  const { data } = await supabase.from('health_user_profile').select('height_inches').single()
   _cachedHeight = data?.height_inches || 65
   return _cachedHeight
 }
